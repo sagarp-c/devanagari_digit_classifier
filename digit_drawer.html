@@ -1,92 +1,290 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Handwritten Digit Collector</title>    // (32x32 PNG with 2px padding)
+  <meta charset="UTF-8" />
+  <title>Digit Drawer with Class Selection - Dark Mode + Brush Options</title>
   <style>
-    body { text-align: center; font-family: sans-serif; }
-    canvas {
-      border: 2px solid black;
-      cursor: crosshair;
-      margin-bottom: 10px;
+    body {
+      background-color: #121212;
+      color: #eee;
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding: 20px;
     }
-    button { margin: 5px; padding: 10px 20px; }
+    select, button, input[type="range"] {
+      background-color: #333;
+      color: #eee;
+      border: 1px solid #555;
+      padding: 8px 15px;
+      margin: 10px;
+      border-radius: 5px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    select:hover, button:hover {
+      background-color: #555;
+    }
+    canvas {
+      border: 1px solid #555;
+      background-color: #222;
+      image-rendering: pixelated;
+      cursor: crosshair;
+      margin-top: 10px;
+    }
+    #status {
+      margin-top: 10px;
+      font-size: 14px;
+    }
   </style>
 </head>
 <body>
 
-  <h1>🖊️ Draw a Digit and Save (32x32 PNG with 2px padding)</h1>
-  <canvas id="canvas" width="280" height="280"></canvas><br>
-  <button onclick="clearCanvas()">Clear</button>
-  <button onclick="downloadImage()">Save as PNG</button>
+<h2>Select Digit/Class:</h2>
+<select id="digit-select">
+  <option value="0">0</option>
+  <option value="1">1</option>
+  <option value="2">2</option>
+  <option value="3">3</option>
+  <option value="4">4</option>
+  <option value="5">5</option>
+  <option value="6">6</option>
+  <option value="7">7</option>
+  <option value="8">8</option>
+  <option value="9">9</option>
+</select>
 
-  <script>
-    const canvas = document.getElementById('canvas');
-    const ctx = canvas.getContext('2d');
-    let drawing = false;
+<h3>Brush Size: <span id="brush-size-label">20</span></h3>
+<input type="range" id="brush-size" min="1" max="50" value="20">
 
-    canvas.addEventListener('mousedown', () => drawing = true);
-    canvas.addEventListener('mouseup', () => drawing = false);
-    canvas.addEventListener('mouseout', () => drawing = false);
-    canvas.addEventListener('mousemove', draw);
+<h3>Brush Style:</h3>
+<select id="brush-style">
+  <option value="round">Round</option>
+  <option value="square">Square</option>
+</select>
 
-    // Setup initial canvas: white background, black pen
-    ctx.fillStyle = "white";
+<h2>Draw here:</h2>
+<canvas id="draw-canvas" width="280" height="280"></canvas><br/>
+
+<button id="undo-btn">Undo Last Stroke</button>
+<button id="save-btn">Save Drawing (S)</button>
+<button id="clear-btn">Clear (C)</button>
+
+<div id="status"></div>
+
+<script>
+  const canvas = document.getElementById('draw-canvas');
+  const ctx = canvas.getContext('2d');
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.lineWidth = 20;
+  ctx.strokeStyle = 'white';
+
+  let brushStyle = 'round';
+  let brushSize = 20;
+
+  let drawing = false;
+  let strokes = [];
+  let currentStroke = [];
+
+  const status = document.getElementById('status');
+  const digitSelect = document.getElementById('digit-select');
+
+  const brushSizeInput = document.getElementById('brush-size');
+  const brushSizeLabel = document.getElementById('brush-size-label');
+  brushSizeInput.oninput = (e) => {
+    brushSize = parseInt(e.target.value);
+    brushSizeLabel.textContent = brushSize;
+  };
+
+  document.getElementById('brush-style').onchange = (e) => {
+    brushStyle = e.target.value;
+  };
+
+  const savedCounts = {};
+  for (let i = 0; i <= 9; i++) savedCounts[i] = 0;
+
+  function updateStatus() {
+    const digit = digitSelect.value;
+    status.textContent = `Saved images for '${digit}': ${savedCounts[digit]}`;
+  }
+  updateStatus();
+
+  // Drawing events
+  canvas.addEventListener('mousedown', (e) => {
+    drawing = true;
+    currentStroke = [];
+    addPoint(e);
+  });
+  canvas.addEventListener('mouseup', () => {
+    drawing = false;
+    if (currentStroke.length) strokes.push(currentStroke);
+  });
+  canvas.addEventListener('mouseout', () => {
+    drawing = false;
+    if (currentStroke.length) strokes.push(currentStroke);
+  });
+  canvas.addEventListener('mousemove', addPoint);
+
+  // Touch support
+  canvas.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    drawing = true;
+    currentStroke = [];
+    addTouchPoint(e);
+  }, { passive: false });
+
+  canvas.addEventListener('touchend', (e) => {
+    e.preventDefault();
+    drawing = false;
+    if (currentStroke.length) strokes.push(currentStroke);
+  }, { passive: false });
+
+  canvas.addEventListener('touchcancel', (e) => {
+    e.preventDefault();
+    drawing = false;
+    if (currentStroke.length) strokes.push(currentStroke);
+  }, { passive: false });
+
+  canvas.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    addTouchPoint(e);
+  }, { passive: false });
+
+  function addPoint(e) {
+    if (!drawing) return;
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    currentStroke.push({ x, y });
+    redraw();
+  }
+
+  function addTouchPoint(e) {
+    if (!drawing) return;
+    const rect = canvas.getBoundingClientRect();
+    const touch = e.touches[0];
+    const x = touch.clientX - rect.left;
+    const y = touch.clientY - rect.top;
+    currentStroke.push({ x, y });
+    redraw();
+  }
+
+  function redraw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#222';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.strokeStyle = "black";
-    ctx.lineWidth = 12;
-    ctx.lineCap = "round";
 
-    function draw(e) {
-      if (!drawing) return;
-      const rect = canvas.getBoundingClientRect();
-      ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
-      ctx.stroke();
+    ctx.strokeStyle = 'white';
+    ctx.lineWidth = brushSize;
+    ctx.lineCap = brushStyle;
+    ctx.lineJoin = brushStyle;
+
+    for (let stroke of strokes) {
       ctx.beginPath();
-      ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
-    }
-
-    function clearCanvas() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = "white";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.beginPath();
-    }
-
-    function downloadImage() {
-      const label = prompt("Enter digit label (0–9):");
-      if (label === null || label === "" || !/^[0-9]$/.test(label)) {
-        alert("Invalid label! Please enter a digit 0-9.");
-        return;
+      for (let i = 0; i < stroke.length; i++) {
+        const point = stroke[i];
+        if (i === 0) ctx.moveTo(point.x, point.y);
+        else ctx.lineTo(point.x, point.y);
       }
-
-      // Step 1: Create an offscreen canvas of 28x28 (actual char size)
-      const smallCanvas = document.createElement('canvas');
-      smallCanvas.width = 28;
-      smallCanvas.height = 28;
-      const smallCtx = smallCanvas.getContext('2d');
-
-      // Step 2: Scale down original 280x280 canvas content into 28x28 canvas
-      // This centers and scales your drawing to 28x28
-      smallCtx.fillStyle = "white";
-      smallCtx.fillRect(0, 0, 28, 28);
-      smallCtx.drawImage(canvas, 0, 0, 280, 280, 0, 0, 28, 28);
-
-      // Step 3: Create final 32x32 canvas, fill white, and paste the 28x28 image at (2,2)
-      const finalCanvas = document.createElement('canvas');
-      finalCanvas.width = 32;
-      finalCanvas.height = 32;
-      const finalCtx = finalCanvas.getContext('2d');
-      finalCtx.fillStyle = "white";
-      finalCtx.fillRect(0, 0, 32, 32);
-      finalCtx.drawImage(smallCanvas, 2, 2);
-
-      // Step 4: Create a download link for the PNG
-      const link = document.createElement('a');
-      link.download = `digit_${label}_${Date.now()}.png`;
-      link.href = finalCanvas.toDataURL();
-      link.click();
+      ctx.stroke();
     }
-  </script>
+
+    if (currentStroke.length > 0) {
+      ctx.beginPath();
+      for (let i = 0; i < currentStroke.length; i++) {
+        const point = currentStroke[i];
+        if (i === 0) ctx.moveTo(point.x, point.y);
+        else ctx.lineTo(point.x, point.y);
+      }
+      ctx.stroke();
+    }
+  }
+
+  // Undo last stroke
+  document.getElementById('undo-btn').onclick = () => {
+    strokes.pop();
+    redraw();
+  };
+
+  function clearCanvas() {
+    strokes = [];
+    currentStroke = [];
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#222';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
+  document.getElementById('clear-btn').onclick = clearCanvas;
+
+  // Save drawing
+  document.getElementById('save-btn').onclick = saveDrawing;
+
+  function saveDrawing() {
+    if (strokes.length === 0) {
+      alert("Draw something before saving!");
+      return;
+    }
+
+    const smallCanvas = document.createElement('canvas');
+    smallCanvas.width = 32;
+    smallCanvas.height = 32;
+    const smallCtx = smallCanvas.getContext('2d');
+
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = 28;
+    tempCanvas.height = 28;
+    const tempCtx = tempCanvas.getContext('2d');
+
+    tempCtx.fillStyle = 'black';
+    tempCtx.fillRect(0, 0, 28, 28);
+    tempCtx.strokeStyle = 'white';
+    tempCtx.lineWidth = brushSize * (28 / 280);
+    tempCtx.lineCap = brushStyle;
+    tempCtx.lineJoin = brushStyle;
+
+    for (const stroke of strokes) {
+      tempCtx.beginPath();
+      for (let i = 0; i < stroke.length; i++) {
+        const pt = stroke[i];
+        const x = pt.x * (28 / 280);
+        const y = pt.y * (28 / 280);
+        if (i === 0) tempCtx.moveTo(x, y);
+        else tempCtx.lineTo(x, y);
+      }
+      tempCtx.stroke();
+    }
+
+    smallCtx.fillStyle = 'black';
+    smallCtx.fillRect(0, 0, 32, 32);
+    smallCtx.drawImage(tempCanvas, 0, 0, 28, 28, 2, 2, 28, 28);
+
+    const digit = digitSelect.value;
+    const timestamp = Date.now();
+    const filename = `digit_${digit}_${timestamp}.png`;
+
+    smallCanvas.toBlob((blob) => {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      a.click();
+
+      savedCounts[digit]++;
+      updateStatus();
+     // clearCanvas();
+    });
+  }
+
+  // Keyboard shortcuts
+  document.addEventListener('keydown', (e) => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+    if (e.key.toLowerCase() === 's') saveDrawing();
+    else if (e.key.toLowerCase() === 'c') clearCanvas();
+    else if (e.key.toLowerCase() === 'u') {
+      strokes.pop();
+      redraw();
+    }
+  });
+</script>
 
 </body>
 </html>
