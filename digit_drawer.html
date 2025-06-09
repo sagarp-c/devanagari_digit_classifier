@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Digit Drawer with Class Selection - Dark Mode + Brush Options</title>
+  <title>Digit Drawer with Variations Save</title>
   <style>
     body {
       background-color: #121212;
@@ -88,14 +88,12 @@
 
   const status = document.getElementById('status');
   const digitSelect = document.getElementById('digit-select');
-
   const brushSizeInput = document.getElementById('brush-size');
   const brushSizeLabel = document.getElementById('brush-size-label');
   brushSizeInput.oninput = (e) => {
     brushSize = parseInt(e.target.value);
     brushSizeLabel.textContent = brushSize;
   };
-
   document.getElementById('brush-style').onchange = (e) => {
     brushStyle = e.target.value;
   };
@@ -132,19 +130,16 @@
     currentStroke = [];
     addTouchPoint(e);
   }, { passive: false });
-
   canvas.addEventListener('touchend', (e) => {
     e.preventDefault();
     drawing = false;
     if (currentStroke.length) strokes.push(currentStroke);
   }, { passive: false });
-
   canvas.addEventListener('touchcancel', (e) => {
     e.preventDefault();
     drawing = false;
     if (currentStroke.length) strokes.push(currentStroke);
   }, { passive: false });
-
   canvas.addEventListener('touchmove', (e) => {
     e.preventDefault();
     addTouchPoint(e);
@@ -158,7 +153,6 @@
     currentStroke.push({ x, y });
     redraw();
   }
-
   function addTouchPoint(e) {
     if (!drawing) return;
     const rect = canvas.getBoundingClientRect();
@@ -215,127 +209,193 @@
   }
   document.getElementById('clear-btn').onclick = clearCanvas;
 
-  // Save drawing
-  document.getElementById('save-btn').onclick = saveDrawing;
-
-function saveDrawing() {
-  if (strokes.length === 0) {
-    alert("Draw something before saving!");
-    return;
+  // --- Helper to save canvas ---
+  function saveCanvasDelayed(canvas, suffix, delay) {
+    const digit = digitSelect.value;
+    const timestamp = Date.now();
+    const filename = `digit_${digit}_${timestamp}_${suffix}.png`;
+    setTimeout(() => {
+      canvas.toBlob((blob) => {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = filename;
+        a.click();
+        savedCounts[digit]++;
+        updateStatus();
+      });
+    }, delay);
   }
 
-  const digit = digitSelect.value;
-  const timestamp = Date.now();
-
-  // Helper to create 28x28 canvas with white bg
+  // --- Create base 28x28 canvas ---
   function createBaseCanvas() {
-    const c = document.createElement('canvas');
-    c.width = 28;
-    c.height = 28;
-    const ctx = c.getContext('2d');
-    ctx.fillStyle = 'white';
-    ctx.fillRect(0, 0, 28, 28);
-    return { canvas: c, ctx };
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = 28;
+    tempCanvas.height = 28;
+    return { canvas: tempCanvas, ctx: tempCanvas.getContext('2d') };
   }
 
-  // Draw strokes on ctx with given lineWidth and optional transform function (for tilt)
-  function drawStrokes(ctx, lineWidth, transformFn) {
-    ctx.strokeStyle = 'black';
-    ctx.lineWidth = lineWidth;
-    ctx.lineCap = brushStyle;
-    ctx.lineJoin = brushStyle;
+  // --- Draw strokes on given ctx with given brushSize and brushShape ---
+  function drawStrokesWithBrush(ctx, size, brushShape, transformFn) {
     ctx.clearRect(0, 0, 28, 28);
     ctx.fillStyle = 'white';
     ctx.fillRect(0, 0, 28, 28);
+    ctx.strokeStyle = 'black';
+    ctx.lineWidth = size;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    if (transformFn) ctx.save();
+    if (transformFn) transformFn(ctx);
 
     for (const stroke of strokes) {
       ctx.beginPath();
       for (let i = 0; i < stroke.length; i++) {
-        let x = stroke[i].x * (28 / 280);
-        let y = stroke[i].y * (28 / 280);
-        if (transformFn) {
-          const p = transformFn(x, y);
-          x = p.x; y = p.y;
+        let pt = stroke[i];
+        let x = pt.x * (28 / 280);
+        let y = pt.y * (28 / 280);
+
+        if (brushShape === 'star' || brushShape === 'pentagon' || brushShape === 'triangle') {
+          // For custom shapes, draw shape at each point
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        } else {
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
         }
-        if (i === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
       }
-      ctx.stroke();
+      if (brushShape === 'star' || brushShape === 'pentagon' || brushShape === 'triangle') {
+        // Instead of stroke path, draw shapes at points
+        ctx.stroke(); // path (optional)
+        for (const pt of stroke) {
+          drawShapeAt(ctx, pt.x * (28 / 280), pt.y * (28 / 280), size, brushShape);
+        }
+      } else {
+        ctx.lineCap = brushShape === 'square' ? 'butt' : 'round';
+        ctx.lineJoin = brushShape === 'square' ? 'miter' : 'round';
+        ctx.stroke();
+      }
     }
+
+    if (transformFn) ctx.restore();
   }
 
-  // Save canvas as PNG with name
-  function saveCanvas(canvas, suffix) {
-    canvas.toBlob((blob) => {
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = `digit_${digit}_${timestamp}_${suffix}.png`;
-      a.click();
-
-      savedCounts[digit]++;
-      updateStatus();
-    });
+  // --- Draw star, pentagon, triangle at (x,y) with size ---
+  function drawShapeAt(ctx, x, y, size, shape) {
+    ctx.fillStyle = 'black';
+    ctx.beginPath();
+    switch(shape) {
+      case 'star': drawStar(ctx, x, y, size / 2, 5); break;
+      case 'pentagon': drawPolygon(ctx, x, y, size / 2, 5); break;
+      case 'triangle': drawPolygon(ctx, x, y, size / 2, 3); break;
+      default: return;
+    }
+    ctx.fill();
   }
 
-  // 1) Save original
-  const base = createBaseCanvas();
-  drawStrokes(base.ctx, brushSize * (28 / 280));
-  saveCanvas(base.canvas, 'original');
-
-  // 2) Save 10 thickness variations (vary lineWidth +/- 50%)
-  const baseLineWidth = brushSize * (28 / 280);
-  for (let i = 1; i <= 10; i++) {
-    const variation = baseLineWidth * (0.5 + i * 0.05); // from 0.55 to 1.0 lineWidth roughly
-    const vCanvas = createBaseCanvas();
-    drawStrokes(vCanvas.ctx, variation);
-    saveCanvas(vCanvas.canvas, `thickness_${i}`);
+  function drawStar(ctx, cx, cy, radius, points) {
+    const step = Math.PI / points;
+    ctx.moveTo(cx + radius, cy);
+    for (let i = 0; i < 2 * points; i++) {
+      const r = (i % 2 === 0) ? radius : radius / 2;
+      const angle = i * step;
+      ctx.lineTo(cx + r * Math.cos(angle), cy + r * Math.sin(angle));
+    }
+    ctx.closePath();
   }
 
-  // 3) Add pixel noise (2 images)
-  function addNoise(canvas) {
-    const ctx = canvas.getContext('2d');
+  function drawPolygon(ctx, cx, cy, radius, sides) {
+    const step = (2 * Math.PI) / sides;
+    ctx.moveTo(cx + radius, cy);
+    for(let i = 1; i <= sides; i++) {
+      const angle = i * step;
+      ctx.lineTo(cx + radius * Math.cos(angle), cy + radius * Math.sin(angle));
+    }
+    ctx.closePath();
+  }
+
+  // --- Add pixel noise to ctx ---
+  function addPixelNoise(ctx, noiseLevel = 0.15) {
     const imgData = ctx.getImageData(0, 0, 28, 28);
-    for (let i = 0; i < imgData.data.length; i += 4) {
-      // Add small noise to black pixels (alpha ignored)
-      if (imgData.data[i] < 100) { // near black
-        const noise = (Math.random() - 0.5) * 50; // noise between -25 and +25
-        imgData.data[i] = Math.min(255, Math.max(0, imgData.data[i] + noise));
-        imgData.data[i+1] = Math.min(255, Math.max(0, imgData.data[i+1] + noise));
-        imgData.data[i+2] = Math.min(255, Math.max(0, imgData.data[i+2] + noise));
+    const data = imgData.data;
+    for (let i = 0; i < data.length; i += 4) {
+      if (Math.random() < noiseLevel) {
+        const noise = (Math.random() * 255) | 0;
+        data[i] = noise;       // R
+        data[i+1] = noise;     // G
+        data[i+2] = noise;     // B
+        // alpha stays same
       }
     }
     ctx.putImageData(imgData, 0, 0);
   }
 
-  for (let i = 1; i <= 2; i++) {
-    const noiseCanvas = createBaseCanvas();
-    drawStrokes(noiseCanvas.ctx, baseLineWidth);
-    addNoise(noiseCanvas.canvas);
-    saveCanvas(noiseCanvas.canvas, `noise_${i}`);
-  }
-
-  // 4) Add tilt (2 images), tilt angle small (e.g. ±10 degrees)
-  function tiltTransformFactory(angleDeg) {
-    const angle = (angleDeg * Math.PI) / 180;
-    const cx = 14; // center of 28x28 canvas
-    const cy = 14;
-    return (x, y) => {
-      // rotate point around center
-      const dx = x - cx;
-      const dy = y - cy;
-      const nx = dx * Math.cos(angle) - dy * Math.sin(angle) + cx;
-      const ny = dx * Math.sin(angle) + dy * Math.cos(angle) + cy;
-      return { x: nx, y: ny };
+  // --- Tilt transform ---
+  function getTiltTransform(angleDegrees) {
+    return function(ctx) {
+      ctx.translate(14, 14); // center
+      ctx.rotate(angleDegrees * Math.PI / 180);
+      ctx.translate(-14, -14);
     };
   }
 
-  [-10, 10].forEach((angle, i) => {
-    const tiltCanvas = createBaseCanvas();
-    drawStrokes(tiltCanvas.ctx, baseLineWidth, tiltTransformFactory(angle));
-    saveCanvas(tiltCanvas.canvas, `tilt_${i+1}`);
-  });
-}
+  // Save Drawing with variations
+  document.getElementById('save-btn').onclick = saveDrawing;
 
+  function saveDrawing() {
+    if (strokes.length === 0) {
+      alert("Draw something before saving!");
+      return;
+    }
+
+    const thicknessVariations = 10;
+    const brushShapes = ['round', 'square', 'star', 'pentagon', 'triangle'];
+
+    let delay = 0;
+    const delayStep = 300; // ms
+
+    // 1) Original image (using current brush size/style)
+    {
+      const { canvas, ctx } = createBaseCanvas();
+      drawStrokesWithBrush(ctx, brushSize * (28 / 280), brushStyle);
+      saveCanvasDelayed(canvas, `original`, delay);
+      delay += delayStep;
+    }
+
+    // 2) 10 thickness variations
+    for (let i = 0; i < thicknessVariations; i++) {
+      const ratio = 0.5 + (i / (thicknessVariations - 1)) * 1.0; // from 0.5 to 1.5 approx
+      const { canvas, ctx } = createBaseCanvas();
+      drawStrokesWithBrush(ctx, brushSize * (28 / 280) * ratio, brushStyle);
+      saveCanvasDelayed(canvas, `thickness_${(ratio * 100).toFixed(0)}`, delay);
+      delay += delayStep;
+    }
+
+    // 3) Add 2 noisy images (noise level ~15%)
+    for (let i = 0; i < 2; i++) {
+      const { canvas, ctx } = createBaseCanvas();
+      drawStrokesWithBrush(ctx, brushSize * (28 / 280), brushStyle);
+      addPixelNoise(ctx, 0.15);
+      saveCanvasDelayed(canvas, `noise_${i + 1}`, delay);
+      delay += delayStep;
+    }
+
+    // 4) Tilted images +5 and -5 degrees
+    const tiltAngles = [5, -5];
+    tiltAngles.forEach((angle, i) => {
+      const { canvas, ctx } = createBaseCanvas();
+      drawStrokesWithBrush(ctx, brushSize * (28 / 280), brushStyle, getTiltTransform(angle));
+      saveCanvasDelayed(canvas, `tilt_${angle}`, delay);
+      delay += delayStep;
+    });
+
+    // 5) Save 5 images with different brush shapes
+    brushShapes.forEach((bShape, i) => {
+      const { canvas, ctx } = createBaseCanvas();
+      drawStrokesWithBrush(ctx, brushSize * (28 / 280), bShape);
+      saveCanvasDelayed(canvas, `brush_${bShape}`, delay);
+      delay += delayStep;
+    });
+  }
 
   // Keyboard shortcuts
   document.addEventListener('keydown', (e) => {
@@ -348,6 +408,7 @@ function saveDrawing() {
       redraw();
     }
   });
+
 </script>
 
 </body>
