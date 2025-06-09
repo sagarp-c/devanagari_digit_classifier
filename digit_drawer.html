@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Handwritten Digit Collector</title>    // (32x32 PNG with 2px padding)
+  <style>
+    body { text-align: center; font-family: sans-serif; }
+    canvas {
+      border: 2px solid black;
+      cursor: crosshair;
+      margin-bottom: 10px;
+    }
+    button { margin: 5px; padding: 10px 20px; }
+  </style>
+</head>
+<body>
+
+  <h1>🖊️ Draw a Digit and Save (32x32 PNG with 2px padding)</h1>
+  <canvas id="canvas" width="280" height="280"></canvas><br>
+  <button onclick="clearCanvas()">Clear</button>
+  <button onclick="downloadImage()">Save as PNG</button>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    let drawing = false;
+
+    canvas.addEventListener('mousedown', () => drawing = true);
+    canvas.addEventListener('mouseup', () => drawing = false);
+    canvas.addEventListener('mouseout', () => drawing = false);
+    canvas.addEventListener('mousemove', draw);
+
+    // Setup initial canvas: white background, black pen
+    ctx.fillStyle = "white";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = "black";
+    ctx.lineWidth = 12;
+    ctx.lineCap = "round";
+
+    function draw(e) {
+      if (!drawing) return;
+      const rect = canvas.getBoundingClientRect();
+      ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
+    }
+
+    function clearCanvas() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = "white";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.beginPath();
+    }
+
+    function downloadImage() {
+      const label = prompt("Enter digit label (0–9):");
+      if (label === null || label === "" || !/^[0-9]$/.test(label)) {
+        alert("Invalid label! Please enter a digit 0-9.");
+        return;
+      }
+
+      // Step 1: Create an offscreen canvas of 28x28 (actual char size)
+      const smallCanvas = document.createElement('canvas');
+      smallCanvas.width = 28;
+      smallCanvas.height = 28;
+      const smallCtx = smallCanvas.getContext('2d');
+
+      // Step 2: Scale down original 280x280 canvas content into 28x28 canvas
+      // This centers and scales your drawing to 28x28
+      smallCtx.fillStyle = "white";
+      smallCtx.fillRect(0, 0, 28, 28);
+      smallCtx.drawImage(canvas, 0, 0, 280, 280, 0, 0, 28, 28);
+
+      // Step 3: Create final 32x32 canvas, fill white, and paste the 28x28 image at (2,2)
+      const finalCanvas = document.createElement('canvas');
+      finalCanvas.width = 32;
+      finalCanvas.height = 32;
+      const finalCtx = finalCanvas.getContext('2d');
+      finalCtx.fillStyle = "white";
+      finalCtx.fillRect(0, 0, 32, 32);
+      finalCtx.drawImage(smallCanvas, 2, 2);
+
+      // Step 4: Create a download link for the PNG
+      const link = document.createElement('a');
+      link.download = `digit_${label}_${Date.now()}.png`;
+      link.href = finalCanvas.toDataURL();
+      link.click();
+    }
+  </script>
+
+</body>
+</html>
