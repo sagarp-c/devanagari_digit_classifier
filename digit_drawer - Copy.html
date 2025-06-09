@@ -210,7 +210,7 @@
     strokes = [];
     currentStroke = [];
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = '#222';
+    ctx.fillStyle = '#000';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
   }
   document.getElementById('clear-btn').onclick = clearCanvas;
@@ -218,124 +218,60 @@
   // Save drawing
   document.getElementById('save-btn').onclick = saveDrawing;
 
-function saveDrawing() {
-  if (strokes.length === 0) {
-    alert("Draw something before saving!");
-    return;
-  }
+  function saveDrawing() {
+    if (strokes.length === 0) {
+      alert("Draw something before saving!");
+      return;
+    }
 
-  const digit = digitSelect.value;
-  const timestamp = Date.now();
+    const smallCanvas = document.createElement('canvas');
+    smallCanvas.width = 32;
+    smallCanvas.height = 32;
+    const smallCtx = smallCanvas.getContext('2d');
 
-  // Helper to create 28x28 canvas with white bg
-  function createBaseCanvas() {
-    const c = document.createElement('canvas');
-    c.width = 28;
-    c.height = 28;
-    const ctx = c.getContext('2d');
-    ctx.fillStyle = 'white';
-    ctx.fillRect(0, 0, 28, 28);
-    return { canvas: c, ctx };
-  }
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = 28;
+    tempCanvas.height = 28;
+    const tempCtx = tempCanvas.getContext('2d');
 
-  // Draw strokes on ctx with given lineWidth and optional transform function (for tilt)
-  function drawStrokes(ctx, lineWidth, transformFn) {
-    ctx.strokeStyle = 'black';
-    ctx.lineWidth = lineWidth;
-    ctx.lineCap = brushStyle;
-    ctx.lineJoin = brushStyle;
-    ctx.clearRect(0, 0, 28, 28);
-    ctx.fillStyle = 'white';
-    ctx.fillRect(0, 0, 28, 28);
+    tempCtx.fillStyle = 'black';
+    tempCtx.fillRect(0, 0, 28, 28);
+    tempCtx.strokeStyle = 'white';
+    tempCtx.lineWidth = brushSize * (28 / 280);
+    tempCtx.lineCap = brushStyle;
+    tempCtx.lineJoin = brushStyle;
 
     for (const stroke of strokes) {
-      ctx.beginPath();
+      tempCtx.beginPath();
       for (let i = 0; i < stroke.length; i++) {
-        let x = stroke[i].x * (28 / 280);
-        let y = stroke[i].y * (28 / 280);
-        if (transformFn) {
-          const p = transformFn(x, y);
-          x = p.x; y = p.y;
-        }
-        if (i === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
+        const pt = stroke[i];
+        const x = pt.x * (28 / 280);
+        const y = pt.y * (28 / 280);
+        if (i === 0) tempCtx.moveTo(x, y);
+        else tempCtx.lineTo(x, y);
       }
-      ctx.stroke();
+      tempCtx.stroke();
     }
-  }
 
-  // Save canvas as PNG with name
-  function saveCanvas(canvas, suffix) {
-    canvas.toBlob((blob) => {
+    smallCtx.fillStyle = 'black';
+    smallCtx.fillRect(0, 0, 32, 32);
+    smallCtx.drawImage(tempCanvas, 0, 0, 28, 28, 2, 2, 28, 28);
+
+    const digit = digitSelect.value;
+    const timestamp = Date.now();
+    const filename = `digit_${digit}_${timestamp}.png`;
+
+    smallCanvas.toBlob((blob) => {
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
-      a.download = `digit_${digit}_${timestamp}_${suffix}.png`;
+      a.download = filename;
       a.click();
 
       savedCounts[digit]++;
       updateStatus();
+     // clearCanvas();
     });
   }
-
-  // 1) Save original
-  const base = createBaseCanvas();
-  drawStrokes(base.ctx, brushSize * (28 / 280));
-  saveCanvas(base.canvas, 'original');
-
-  // 2) Save 10 thickness variations (vary lineWidth +/- 50%)
-  const baseLineWidth = brushSize * (28 / 280);
-  for (let i = 1; i <= 10; i++) {
-    const variation = baseLineWidth * (0.5 + i * 0.05); // from 0.55 to 1.0 lineWidth roughly
-    const vCanvas = createBaseCanvas();
-    drawStrokes(vCanvas.ctx, variation);
-    saveCanvas(vCanvas.canvas, `thickness_${i}`);
-  }
-
-  // 3) Add pixel noise (2 images)
-  function addNoise(canvas) {
-    const ctx = canvas.getContext('2d');
-    const imgData = ctx.getImageData(0, 0, 28, 28);
-    for (let i = 0; i < imgData.data.length; i += 4) {
-      // Add small noise to black pixels (alpha ignored)
-      if (imgData.data[i] < 100) { // near black
-        const noise = (Math.random() - 0.5) * 50; // noise between -25 and +25
-        imgData.data[i] = Math.min(255, Math.max(0, imgData.data[i] + noise));
-        imgData.data[i+1] = Math.min(255, Math.max(0, imgData.data[i+1] + noise));
-        imgData.data[i+2] = Math.min(255, Math.max(0, imgData.data[i+2] + noise));
-      }
-    }
-    ctx.putImageData(imgData, 0, 0);
-  }
-
-  for (let i = 1; i <= 2; i++) {
-    const noiseCanvas = createBaseCanvas();
-    drawStrokes(noiseCanvas.ctx, baseLineWidth);
-    addNoise(noiseCanvas.canvas);
-    saveCanvas(noiseCanvas.canvas, `noise_${i}`);
-  }
-
-  // 4) Add tilt (2 images), tilt angle small (e.g. ±10 degrees)
-  function tiltTransformFactory(angleDeg) {
-    const angle = (angleDeg * Math.PI) / 180;
-    const cx = 14; // center of 28x28 canvas
-    const cy = 14;
-    return (x, y) => {
-      // rotate point around center
-      const dx = x - cx;
-      const dy = y - cy;
-      const nx = dx * Math.cos(angle) - dy * Math.sin(angle) + cx;
-      const ny = dx * Math.sin(angle) + dy * Math.cos(angle) + cy;
-      return { x: nx, y: ny };
-    };
-  }
-
-  [-10, 10].forEach((angle, i) => {
-    const tiltCanvas = createBaseCanvas();
-    drawStrokes(tiltCanvas.ctx, baseLineWidth, tiltTransformFactory(angle));
-    saveCanvas(tiltCanvas.canvas, `tilt_${i+1}`);
-  });
-}
-
 
   // Keyboard shortcuts
   document.addEventListener('keydown', (e) => {
