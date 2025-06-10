@@ -5,3 +5,9 @@ training_data/
 
 #ignore augmented data 
 augmented_data/
+
+final/
+
+test/
+
+pre_final/
