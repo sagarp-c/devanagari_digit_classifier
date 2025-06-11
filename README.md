@@ -141,4 +141,4 @@ This project is released under the [MIT License](LICENSE).
 B.Tech CSE @ GEC Thrissur
 Curious about ML, GPU computing, and building useful AI tools.
 
-[LinkedIn](#) | [GitHub](#)
+[LinkedIn](https://www.linkedin.com/in/sagarp-)  |  [GitHub](https://github.com/sagarp-c)
