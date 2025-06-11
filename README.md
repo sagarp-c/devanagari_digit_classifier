@@ -54,9 +54,8 @@ Training was done for 20 epochs on RTX 3050 GPU using Docker.
 
 From the **best\_model.keras** evaluation:
 
-* **Test Accuracy**: **99.50%**
-* **Validation Accuracy**: **99.14%**
-* **Validation Loss**: **0.0229**
+* **Validation Accuracy**: **97.55%**
+* **Validation Loss**: **0.2109**
 
 ### 📊 Training Graphs (Matplotlib generated)
 
