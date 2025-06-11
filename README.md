@@ -57,12 +57,10 @@ From the **best\_model.keras** evaluation:
 * **Validation Accuracy**: **97.55%**
 * **Validation Loss**: **0.2109**
 
-### 📊 Training Graphs (Matplotlib generated)
+### 📊 Training Graphs/Bars(Matplotlib generated)
 
-![Accuracy & Loss](training_performance.png)
-![Model Performance](best_model_performance.png)
-![Confusion Matrix](best_model_confusion_matrix.png)
-![Detailed Metrics](best_model_detailed_metrics.png)
+![Training Performance](assets/training_performance.png)
+![Best Model Performance](assets/best_model_performance.png)
 
 ---
 
@@ -95,6 +93,8 @@ Custom-built HTML-based digit drawing tool `digit_drawer.html`:
 
 * Save variations like noise, tilt, shape-based strokes
 * Automatically formats to 28x28 and saves to local disk
+
+![Digit_drawer Screenshot](assets/digit_drawer_ss.png)
 
 ---
 
