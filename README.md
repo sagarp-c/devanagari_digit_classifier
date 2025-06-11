@@ -125,18 +125,7 @@ python final_train.py
 
 * Improve generalization by expanding real-world handwritten data (especially from different age groups and writing styles).
 * Integrate batch normalization to stabilize deeper models.
-* Experiment with modern architectures like MobileNet or EfficientNet.
 * Extend the UI to allow real-time prediction directly in-browser using TensorFlow\.js.
-* Train a unified model that supports both `28x28` and `64x64` input formats.
-* Build a REST API or Gradio demo to make the model more accessible.
-
----
-
-## 👻 Resume Highlights
-
-* ✅ Developed and trained CNN-based classifiers (28x28 and 64x64) for Devanagari digits using TensorFlow/Keras, achieving **up to 99.5% accuracy**.
-* ✅ Built a complete GPU-accelerated training pipeline using Docker and visualized performance using Matplotlib, confusion matrices, and classification metrics.
-* ✅ Designed an interactive HTML5 drawing tool to generate synthetic handwritten data with variations like brush shape, noise, and tilt.
 
 ---
 
@@ -148,7 +137,7 @@ This project is released under the [MIT License](LICENSE).
 
 ## 🙆‍♂️ Author
 
-**Sagar**
+**Sagar P**
 B.Tech CSE @ GEC Thrissur
 Curious about ML, GPU computing, and building useful AI tools.
 
