@@ -142,3 +142,5 @@ B.Tech CSE @ GEC Thrissur
 Curious about ML, GPU computing, and building useful AI tools.
 
 [LinkedIn](https://www.linkedin.com/in/sagarp-)  |  [GitHub](https://github.com/sagarp-c)
+
+*I'm still learning, so there might be some mistakes in this project. If you spot anything, feel free to let me know!
