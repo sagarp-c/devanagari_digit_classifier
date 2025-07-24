@@ -1,4 +1,4 @@
-# 🧐 Handwritten Devanagari Digit Classifier
+#  Handwritten Devanagari Digit Classifier
 
 A deep learning project that uses Convolutional Neural Networks (CNNs) to recognize handwritten Devanagari digits (०–९). This project was driven by my curiosity to explore advanced ML techniques and apply them to Indian scripts — an area that's rich with culture and complexity but often underserved.
 
